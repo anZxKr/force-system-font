@@ -1,0 +1,70 @@
+plugins {
+    id 'com.android.application'
+}
+
+def keystorePath = System.getenv('KEYSTORE')
+def keystoreB64 = System.getenv('KEYSTORE_B64')
+if (!keystorePath && keystoreB64) {
+    def decoded = layout.buildDirectory.file('signing/repo.keystore').get().asFile
+    decoded.parentFile.mkdirs()
+    decoded.bytes = Base64.getMimeDecoder().decode(keystoreB64)
+    keystorePath = decoded.path
+}
+def hasRepoKey = keystorePath != null
+
+android {
+    namespace = findProperty('APP_ID')
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = findProperty('APP_ID')
+        minSdk = findProperty('MIN_SDK').toInteger()
+        targetSdk = findProperty('TARGET_SDK').toInteger()
+        versionCode = findProperty('VERSION_CODE').toInteger()
+        versionName = findProperty('VERSION_NAME')
+    }
+
+    signingConfigs {
+        if (hasRepoKey) {
+            create('repo') {
+                storeFile = project.file(keystorePath)
+                storePassword = System.getenv('KEYSTORE_PASS')
+                keyAlias = System.getenv('ALIAS')
+                keyPassword = System.getenv('KEY_PASS') ?: System.getenv('KEYSTORE_PASS')
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            if (hasRepoKey) signingConfig = signingConfigs.getByName('repo')
+        }
+        release {
+            if (hasRepoKey) signingConfig = signingConfigs.getByName('repo')
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    compileOnly 'de.robv.android.xposed:api:82'
+}
+
+
+tasks.configureEach { task ->
+    if (task.name == 'assembleRelease') {
+        task.doFirst {
+            if (!hasRepoKey) {
+                throw new GradleException('Release build needs the repo signing key: set KEYSTORE_B64 (or KEYSTORE), KEYSTORE_PASS, ALIAS and KEY_PASS.')
+            }
+        }
+    }
+}
