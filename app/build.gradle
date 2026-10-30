@@ -12,6 +12,17 @@ if (!keystorePath && keystoreB64) {
 }
 def hasRepoKey = keystorePath != null
 
+def gitOutput = { List<String> cmd ->
+    providers.exec {
+        commandLine(cmd)
+        ignoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}
+def gitCountText = gitOutput(['git', 'rev-list', '--count', 'HEAD'])
+def gitCommitCount = findProperty('VERSION_CODE_BASE').toInteger() + (gitCountText.isInteger() ? gitCountText.toInteger() : 1)
+def gitDescribe = gitOutput(['git', 'describe', '--tags', '--always'])
+def gitVersionName = gitDescribe ? gitDescribe.replaceFirst(/^v/, '') : '0.0.0'
+
 android {
     namespace = findProperty('APP_ID')
     compileSdk = 36
@@ -20,8 +31,8 @@ android {
         applicationId = findProperty('APP_ID')
         minSdk = findProperty('MIN_SDK').toInteger()
         targetSdk = findProperty('TARGET_SDK').toInteger()
-        versionCode = findProperty('VERSION_CODE').toInteger()
-        versionName = findProperty('VERSION_NAME')
+        versionCode = gitCommitCount
+        versionName = gitVersionName
     }
 
     signingConfigs {
@@ -37,9 +48,11 @@ android {
 
     buildTypes {
         debug {
+            // BuildConfig.DEBUG is true here: module logging is on.
             if (hasRepoKey) signingConfig = signingConfigs.getByName('repo')
         }
         release {
+            // BuildConfig.DEBUG is false here: module logging is off.
             if (hasRepoKey) signingConfig = signingConfigs.getByName('repo')
         }
     }
@@ -57,7 +70,6 @@ android {
 dependencies {
     compileOnly 'de.robv.android.xposed:api:82'
 }
-
 
 tasks.configureEach { task ->
     if (task.name == 'assembleRelease') {

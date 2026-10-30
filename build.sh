@@ -31,7 +31,7 @@ KEYSTORE="${KEYSTORE:-debug.jks}"
 KEYSTORE_PASS="${KEYSTORE_PASS:-android}"
 ALIAS="${ALIAS:-fsf}"
 KEY_PASS="${KEY_PASS:-$KEYSTORE_PASS}"
-export KEYSTORE_PASS KEY_PASS   # passed to keytool/apksigner by name
+export KEYSTORE_PASS KEY_PASS   
 
 for tool in javac keytool aapt zipalign apksigner; do
   command -v "$tool" >/dev/null 2>&1 || die "missing tool: $tool"
@@ -47,13 +47,14 @@ else
   die "no d8 command and no r8.jar at $R8_JAR"
 fi
 
-
 prop() { sed -n "s/^$1=//p" gradle.properties; }
-APP_ID="$(prop APP_ID)"; VERSION_NAME="$(prop VERSION_NAME)"; VERSION_CODE="$(prop VERSION_CODE)"
-MIN_SDK="$(prop MIN_SDK)"; TARGET_SDK="$(prop TARGET_SDK)"
-for v in "$APP_ID" "$VERSION_NAME" "$VERSION_CODE" "$MIN_SDK" "$TARGET_SDK"; do
-  [ -n "$v" ] || die "gradle.properties is missing APP_ID / VERSION_* / *_SDK"
+APP_ID="$(prop APP_ID)"; MIN_SDK="$(prop MIN_SDK)"; TARGET_SDK="$(prop TARGET_SDK)"
+for v in "$APP_ID" "$MIN_SDK" "$TARGET_SDK"; do
+  [ -n "$v" ] || die "gradle.properties is missing APP_ID / MIN_SDK / TARGET_SDK"
 done
+COMMITS="$(git rev-list --count HEAD 2>/dev/null || true)"
+VERSION_CODE=$(( $(prop VERSION_CODE_BASE) + ${COMMITS:-1} ))
+VERSION_NAME="$(git describe --tags --always 2>/dev/null | sed 's/^v//' || true)"; VERSION_NAME="${VERSION_NAME:-0.0.0}"
 
 MAIN=app/src/main
 OUT="out/ForceSystemFont-v$VERSION_NAME-$BUILD_TYPE.apk"
@@ -67,7 +68,6 @@ if [ ! -f "$KEYSTORE" ]; then
     -validity 36500 -storepass:env KEYSTORE_PASS -keypass:env KEY_PASS \
     -dname "CN=ForceSystemFont"
 fi
-
 
 GEN_PKG_DIR="out/gen/$(echo "$APP_ID" | tr . /)"
 mkdir -p "$GEN_PKG_DIR"
