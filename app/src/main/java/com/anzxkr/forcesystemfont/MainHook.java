@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -49,6 +50,7 @@ public class MainHook implements IXposedHookLoadPackage {
         if (SELF.equals(lpparam.packageName)) return;
 
         FakeStyle.install();
+        final boolean forceMono = forceMono();
 
         final Class<?> builder = XposedHelpers.findClassIfExists(
                 "android.graphics.Typeface$CustomFallbackBuilder", lpparam.classLoader);
@@ -73,6 +75,7 @@ public class MainHook implements IXposedHookLoadPackage {
                         int weight = Math.max(1, original.getWeight());
                         boolean italic = original.isItalic();
                         boolean mono = isMonospace(original);
+                        if (mono && !forceMono) return;
                         Typeface base = mono ? Typeface.MONOSPACE : Typeface.DEFAULT;
                         param.setResult(Typeface.create(base, weight, italic));
                         if (BuildConfig.DEBUG) log("replaced " + (mono ? "mono" : "text")
@@ -122,6 +125,15 @@ public class MainHook implements IXposedHookLoadPackage {
             if (app.hasGlyph(probe) && !sys.hasGlyph(probe)) return true;
         }
         return false;
+    }
+
+    private static boolean forceMono() {
+        try {
+            return new XSharedPreferences(SELF, SettingsActivity.PREFS)
+                    .getBoolean(SettingsActivity.KEY_MONO, true);
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
