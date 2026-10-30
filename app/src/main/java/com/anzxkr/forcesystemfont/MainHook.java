@@ -48,6 +48,8 @@ public class MainHook implements IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
         if (SELF.equals(lpparam.packageName)) return;
 
+        FakeStyle.install();
+
         final Class<?> builder = XposedHelpers.findClassIfExists(
                 "android.graphics.Typeface$CustomFallbackBuilder", lpparam.classLoader);
         if (builder == null) {
@@ -111,7 +113,7 @@ public class MainHook implements IXposedHookLoadPackage {
     }
 
     /** Icon font: has glyphs in the Private Use Area that the system font does not have. */
-    private static boolean isIconFont(Typeface tf) {
+    static boolean isIconFont(Typeface tf) {
         Paint app = new Paint();
         app.setTypeface(tf);
         Paint sys = new Paint();
