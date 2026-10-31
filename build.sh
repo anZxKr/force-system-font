@@ -86,7 +86,7 @@ d8 "$D8_MODE" --min-api "$MIN_SDK" --lib "$ANDROID_JAR" --output out/dex \
   $(find out/classes -name '*.class')
 
 echo "[3/5] pack manifest + assets"
-aapt package -f -M out/AndroidManifest.xml -A "$MAIN/assets" -I "$ANDROID_JAR" -F out/base.apk
+aapt package -f -M out/AndroidManifest.xml -S "$MAIN/res" -A "$MAIN/assets" -I "$ANDROID_JAR" -F out/base.apk
 ( cd out/dex && aapt add ../base.apk classes.dex >/dev/null )
 
 echo "[4/5] align + sign"
