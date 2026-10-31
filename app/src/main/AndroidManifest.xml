@@ -5,6 +5,19 @@
         android:label="Force System Font"
         android:allowBackup="false">
 
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.DayNight">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+            </intent-filter>
+        </activity>
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -14,5 +27,8 @@
         <meta-data
             android:name="xposedminversion"
             android:value="82" />
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true" />
     </application>
 </manifest>

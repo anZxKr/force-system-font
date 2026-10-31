@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -18,10 +19,12 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
  * Every font an app brings itself (createFromAsset, createFromFile, Typeface.Builder,
  * res/font XML, downloadable fonts, Compose fonts) ends in
  * Typeface.CustomFallbackBuilder.build() on API 29+. We hook only that, and swap the
- * result for the system typeface of the same weight/italic. Typefaces derived later
- * (Typeface.create(tf, style), create(tf, weight, italic)) then inherit the system font.
+ * result for the system typeface of the same weight/italic (system monospace for
+ * monospace fonts). Typefaces derived later (Typeface.create(tf, style),
+ * create(tf, weight, italic)) then inherit the system font.
  *
- * Kept as-is: monospace fonts and icon fonts (private-use-area glyph fonts).
+ * Kept as-is: icon fonts and other fonts with private-use-area glyphs (this includes
+ * Nerd/Powerline terminal fonts, which would lose their symbols).
  */
 public class MainHook implements IXposedHookLoadPackage {
 
@@ -46,6 +49,9 @@ public class MainHook implements IXposedHookLoadPackage {
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
         if (SELF.equals(lpparam.packageName)) return;
 
+        FakeStyle.install();
+        final boolean forceMono = forceMono();
+
         final Class<?> builder = XposedHelpers.findClassIfExists(
                 "android.graphics.Typeface$CustomFallbackBuilder", lpparam.classLoader);
         if (builder == null) {
@@ -61,10 +67,6 @@ public class MainHook implements IXposedHookLoadPackage {
                         Typeface original = (Typeface) param.getResult();
                         if (original == null) return;
 
-                        if (isMonospace(original)) {
-                            if (BuildConfig.DEBUG) log("kept (monospace) in " + lpparam.packageName);
-                            return;
-                        }
                         if (isIconFont(original)) {
                             if (BuildConfig.DEBUG) log("kept (icon font) in " + lpparam.packageName);
                             return;
@@ -72,9 +74,12 @@ public class MainHook implements IXposedHookLoadPackage {
 
                         int weight = Math.max(1, original.getWeight());
                         boolean italic = original.isItalic();
-                        param.setResult(Typeface.create(Typeface.DEFAULT, weight, italic));
-                        if (BuildConfig.DEBUG) log("replaced w=" + weight + " italic=" + italic
-                                + " in " + lpparam.packageName);
+                        boolean mono = isMonospace(original);
+                        if (mono && !forceMono) return;
+                        Typeface base = mono ? Typeface.MONOSPACE : Typeface.DEFAULT;
+                        param.setResult(Typeface.create(base, weight, italic));
+                        if (BuildConfig.DEBUG) log("replaced " + (mono ? "mono" : "text")
+                                + " w=" + weight + " italic=" + italic + " in " + lpparam.packageName);
                     } catch (Throwable t) {
                         // On any failure keep the app's own font rather than break the app.
                         XposedBridge.log(t);
@@ -111,7 +116,7 @@ public class MainHook implements IXposedHookLoadPackage {
     }
 
     /** Icon font: has glyphs in the Private Use Area that the system font does not have. */
-    private static boolean isIconFont(Typeface tf) {
+    static boolean isIconFont(Typeface tf) {
         Paint app = new Paint();
         app.setTypeface(tf);
         Paint sys = new Paint();
@@ -120,6 +125,15 @@ public class MainHook implements IXposedHookLoadPackage {
             if (app.hasGlyph(probe) && !sys.hasGlyph(probe)) return true;
         }
         return false;
+    }
+
+    private static boolean forceMono() {
+        try {
+            return new XSharedPreferences(SELF, SettingsActivity.PREFS)
+                    .getBoolean(SettingsActivity.KEY_MONO, true);
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
