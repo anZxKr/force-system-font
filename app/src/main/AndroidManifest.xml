@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application
+        android:icon="@mipmap/ic_launcher"
         android:label="Force System Font"
         android:allowBackup="false">
 
@@ -11,10 +12,7 @@
             android:theme="@android:style/Theme.DeviceDefault.DayNight">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
+                <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
         </activity>
 
@@ -23,7 +21,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="Forces apps to use the system font instead of their bundled fonts. Monospace and icon fonts are left alone." />
+            android:value="Forces apps to use the system font." />
         <meta-data
             android:name="xposedminversion"
             android:value="82" />
